@@ -1,0 +1,13 @@
+# MoodMirror base dependencies -- light, pure-Python, pinned to what's verified
+# installed on this machine (Python 3.13.5, Windows). These are all app.py needs
+# to LAUNCH. The heavy CV/NLP stack lives in requirements-heavy.txt.
+#
+# These pins are OBSERVED-GOOD on this machine, not researched cross-version
+# compatible. gradio majors shift widget signatures (gr.Image(sources=...),
+# gr.Blocks) -- if you bump gradio, re-check app.py's UI calls.
+#
+#   pip install -r requirements-base.txt
+
+gradio==6.22.0
+python-dotenv==1.0.1
+requests==2.32.5

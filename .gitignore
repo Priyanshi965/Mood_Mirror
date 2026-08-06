@@ -1,0 +1,37 @@
+# Secrets -- never commit
+.env
+
+# Feedback DB and any SQLite
+*.db
+*.sqlite
+*.sqlite3
+
+# Privacy: MoodMirror stores NO images (plan §10). If any ever land here by
+# accident, keep them out of git.
+*.png
+*.jpg
+*.jpeg
+captures/
+uploads/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Model caches (DeepFace / HuggingFace can drop big files locally)
+.deepface/
+weights/
+*.h5
+
+# Local tooling / editor config -- keep out of the repo
+.claude/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

@@ -1,0 +1,20 @@
+# MoodMirror heavy dependencies -- the CV/NLP model stack.
+#
+# These are the versions VERIFIED importing on this machine (Python 3.13.5,
+# Windows) as of Aug 2026. They are already installed here. On a fresh machine,
+# install them AFTER the base set and expect a large download (tensorflow +
+# torch). If a wheel is missing for your Python version, the base app still
+# runs -- each model layer degrades gracefully (core/*.py).
+#
+#   pip install -r requirements-heavy.txt
+#
+# NOTE: torch here is the CPU build. For GPU, install the CUDA build from
+# https://pytorch.org/ instead, matching your CUDA version.
+
+deepface==0.0.99
+mediapipe==0.10.33
+tensorflow==2.21.0
+transformers==5.4.0
+torch==2.11.0
+opencv-python==4.13.0
+numpy==2.4.4
