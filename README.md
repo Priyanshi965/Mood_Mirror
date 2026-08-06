@@ -28,7 +28,7 @@ any heavy logic goes in. Later phases replace stub bodies without changing signa
 | 3 Text emotion (transformers) | `core/text_emotion.py` | 2 | stub |
 | 4 Congruence (face vs words) | `core/congruence.py` | 2 | **real (v1)** |
 | 5 Reasoning & generation (LLM) | `core/generation.py` | 2/3 | stub |
-| 6 Recommendations (Spotify/TMDB/arXiv) | `core/recommend.py` | 4 | stub |
+| 6 Recommendations (Last.fm/TMDB/arXiv) | `core/recommend.py` | 4 | stub |
 | Feedback log (SQLite) | `feedback/store.py` | 5 | **real (v1)** |
 
 The single source of truth for what flows between layers is **`state.py`** — read it first.

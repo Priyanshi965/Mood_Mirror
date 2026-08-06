@@ -1,10 +1,10 @@
 """
-Layer 6 -- Recommendations (Spotify / TMDB / arXiv): live content.
+Layer 6 -- Recommendations (Last.fm / TMDB / arXiv): live content.
 
 Takes the recommendation_spec produced by Layer 5 and turns it into live
 results. PHASE 0 STATUS: stub. Phase 4 wires the real APIs:
-  * Music  -> Spotify Web API (map mood -> target_valence + target_energy)
-  * Movies -> TMDB API (free key)
+  * Music  -> Last.fm API (map mood -> tags -> tag.getTopTracks / getSimilar)
+  * Movies -> TMDB API (free key; /discover/movie by genre)
   * Papers -> arXiv API (no key), for the "curious/creative" state
 
 Rules: each provider imported / called inside its own try block; a provider
@@ -28,8 +28,8 @@ def recommend(spec: dict[str, Any]) -> Recommendations:
     # Real Phase 4 body calls _music(spec), _movies(spec), _papers(spec),
     # each guarded so one dead API doesn't sink the panel.
     notes = []
-    if not config.spotify_ready():
-        notes.append("Spotify key not set")
+    if not config.lastfm_ready():
+        notes.append("Last.fm key not set")
     if not config.tmdb_ready():
         notes.append("TMDB key not set")
 

@@ -110,7 +110,7 @@ class Readings:
 
 
 # --------------------------------------------------------------------------- #
-# Layer 6 -- Recommendations (Spotify / TMDB / arXiv): live content
+# Layer 6 -- Recommendations (Last.fm / TMDB / arXiv): live content
 # --------------------------------------------------------------------------- #
 @dataclass
 class Recommendations:
