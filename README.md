@@ -23,7 +23,7 @@ any heavy logic goes in. Later phases replace stub bodies without changing signa
 
 | Layer | File | Phase | State |
 |------|------|-------|-------|
-| 1 Perception (face emotion + age) | `core/perception.py` | 1 | stub |
+| 1 Perception (face emotion + age) | `core/perception.py` | 1 | **real** (age needs one-time weights download) |
 | 2 Facial features (MediaPipe) | `core/features.py` | 3 | stub |
 | 3 Text emotion (transformers) | `core/text_emotion.py` | 2 | stub |
 | 4 Congruence (face vs words) | `core/congruence.py` | 2 | **real (v1)** |

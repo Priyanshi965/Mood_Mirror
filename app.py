@@ -72,9 +72,12 @@ def _render(s: MirrorState):
     if s.face.available:
         emo = (
             f"**Expressed emotion:** {s.face.emotion} "
-            f"(confidence {s.face.emotion_confidence:.0%})\n\n"
-            f"**Age (a fuzzy guess):** roughly {s.face.age_low}–{s.face.age_high}"
+            f"(confidence {s.face.emotion_confidence:.0%})"
         )
+        if s.face.age_low is not None and s.face.age_high is not None:
+            emo += f"\n\n**Age (a fuzzy guess):** roughly {s.face.age_low}–{s.face.age_high}"
+        elif s.face.note:
+            emo += f"\n\n_{s.face.note}_"
     else:
         emo = f"_No face read._ {s.face.note}"
 
