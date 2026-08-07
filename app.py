@@ -103,12 +103,23 @@ def _render(s: MirrorState):
     # --- Recommendations ---
     r = s.recommendations
     if r.available:
-        recs = (
-            "**Music:** " + ", ".join(m.get("title", "?") for m in r.music) + "\n\n"
-            "**Movies:** " + ", ".join(m.get("title", "?") for m in r.movies) + "\n\n"
-            "**Papers:** " + ", ".join(p.get("title", "?") for p in r.papers)
-        )
-        if r.note and "stub" in r.note:
+        def _link(text, url):
+            return f"[{text}]({url})" if url else text
+
+        parts = []
+        if r.music:
+            parts.append("**🎵 Music:** " + " · ".join(
+                _link(f"{m['title']} — {m.get('artist','')}", m.get("url", ""))
+                for m in r.music))
+        if r.movies:
+            parts.append("**🎬 Movies:** " + " · ".join(
+                f"{m['title']} ({m.get('year','')})" for m in r.movies))
+        if r.papers:
+            parts.append("**📄 Papers:** " + " · ".join(
+                _link(p["title"], p.get("url", "")) for p in r.papers))
+        recs = "\n\n".join(parts) if parts else "_No recommendations available right now._"
+        # Surface provider failures (e.g. missing key / timeout), not the "live" note.
+        if r.note and not r.note.startswith("live"):
             recs += f"\n\n_{r.note}_"
     else:
         recs = f"_{r.note}_"
