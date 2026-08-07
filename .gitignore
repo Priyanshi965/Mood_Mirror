@@ -27,9 +27,6 @@ env/
 weights/
 *.h5
 
-# Local tooling / editor config -- keep out of the repo
-.claude/
-
 # OS / editor
 .DS_Store
 Thumbs.db
