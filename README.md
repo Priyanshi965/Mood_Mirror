@@ -25,9 +25,9 @@ any heavy logic goes in. Later phases replace stub bodies without changing signa
 |------|------|-------|-------|
 | 1 Perception (face emotion + age) | `core/perception.py` | 1 | **real** (age needs one-time weights download) |
 | 2 Facial features (MediaPipe) | `core/features.py` | 3 | stub |
-| 3 Text emotion (transformers) | `core/text_emotion.py` | 2 | stub |
-| 4 Congruence (face vs words) | `core/congruence.py` | 2 | **real (v1)** |
-| 5 Reasoning & generation (LLM) | `core/generation.py` | 2/3 | stub |
+| 3 Text emotion (transformers) | `core/text_emotion.py` | 2 | **real** (GoEmotions; needs one-time model download) |
+| 4 Congruence (face vs words) | `core/congruence.py` | 2 | **real** (full GoEmotions+DeepFace valence coverage) |
+| 5 Reasoning & generation (LLM) | `core/generation.py` | 2/3 | **real** emotional reading via OpenRouter (traditional = Phase 3) |
 | 6 Recommendations (Last.fm/TMDB/arXiv) | `core/recommend.py` | 4 | stub |
 | Feedback log (SQLite) | `feedback/store.py` | 5 | **real (v1)** |
 
@@ -44,6 +44,18 @@ The heavy CV/NLP stack (`requirements-heavy.txt`: deepface, mediapipe, tensorflo
 transformers, torch) is only needed once the model layers are real. Those libraries are
 imported **lazily inside functions**, so the app launches instantly without them and each
 layer degrades gracefully if one is missing.
+
+**Enable age + text-emotion (one-time model download, ~1GB):**
+
+```bash
+python scripts/download_weights.py
+```
+
+The app runs without this — the age band and text-emotion layer just report themselves
+"unavailable" until the models are on disk. The download is gated deliberately so a UI
+click never triggers a multi-hundred-MB blocking download. An LLM key (`OPENROUTER_API_KEY`
+in `.env`) enables the generated reading; without it, generation falls back to a
+deterministic hedged template.
 
 ## Configure (optional)
 

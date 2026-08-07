@@ -1,15 +1,20 @@
 """
-One-time, deliberate download of DeepFace model weights.
+One-time, deliberate download of the model weights the app gates on.
 
-Why this exists: the emotion model is tiny (~6MB) and downloads on first use,
-but the AGE model is ~500MB. We never want that to kick off from a UI click and
-hang the app, so core/perception.py only uses age if these weights are already
-on disk. Run this once, on a good connection, to enable age estimation:
+Why this exists: two models are large enough that auto-downloading them from a
+UI click would hang the app, so the app only uses them if they're already on
+disk (core/perception.py for age, core/text_emotion.py for text emotion). Run
+this once, on a good connection, to enable both:
 
     python scripts/download_weights.py
 
-It's safe to re-run -- DeepFace skips files it already has. Emotion still works
-without ever running this; age simply stays "unavailable" until you do.
+Downloads:
+  * DeepFace emotion (~6MB)   -- tiny; also downloads on first use anyway
+  * DeepFace age (~540MB)     -- enables the fuzzy age band
+  * GoEmotions text (~500MB)  -- enables real text-emotion (Layer 3)
+
+Safe to re-run -- each library skips files it already has. The app still runs
+without this; the gated layers just stay "unavailable" until you do it.
 """
 
 from __future__ import annotations
@@ -43,11 +48,20 @@ def main() -> int:
     DeepFace.analyze(dummy, actions=("emotion",), enforce_detection=False, silent=True)
     print("  emotion: OK")
 
-    print("Downloading age weights (~500MB) if missing -- this can take a while ...")
+    print("Downloading age weights (~540MB) if missing -- this can take a while ...")
     DeepFace.analyze(dummy, actions=("age",), enforce_detection=False, silent=True)
     print("  age: OK")
 
-    print("\nDone. Age estimation is now enabled in the app.")
+    print("Downloading GoEmotions text-emotion model (~500MB) if missing ...")
+    try:
+        from transformers import pipeline
+        pipeline("text-classification", model="SamLowe/roberta-base-go_emotions",
+                 top_k=None)
+        print("  text emotion: OK")
+    except Exception as e:  # noqa: BLE001
+        print(f"  text emotion: FAILED ({type(e).__name__}: {e})")
+
+    print("\nDone. Age + text-emotion are now enabled in the app.")
     return 0
 
 

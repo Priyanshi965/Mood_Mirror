@@ -19,15 +19,32 @@ from __future__ import annotations
 
 from state import FaceState, TextState, CongruenceState
 
-# Minimal valence grouping so "happy" vs "joy" don't count as a conflict.
-# Phase 2 will expand this once the real label sets (DeepFace vs GoEmotions)
-# are pinned down and mapped to a shared vocabulary.
-_POSITIVE = {"happy", "joy", "amusement", "excitement", "gratitude", "love",
-             "optimism", "relief", "pride", "admiration", "approval"}
-_NEGATIVE = {"sad", "sadness", "angry", "anger", "fear", "nervousness",
-             "disgust", "grief", "disappointment", "remorse", "annoyance",
-             "embarrassment"}
-_NEUTRAL = {"neutral", "surprise", "realization", "confusion"}
+# Valence grouping covering BOTH label vocabularies we compare:
+#   * DeepFace face emotions (7): angry, disgust, fear, happy, sad, surprise, neutral
+#   * GoEmotions text emotions (28), using the official sentiment grouping from
+#     Demszky et al. (positive / negative / ambiguous / neutral).
+# Every label a model can emit MUST appear here; anything unlisted falls to
+# neutral in _valence(), which would silently turn real incongruence into
+# "flat". "Ambiguous" GoEmotions labels (curiosity, surprise, ...) are treated
+# as neutral valence on purpose -- they don't carry a clear +/- direction.
+_POSITIVE = {
+    # GoEmotions positive
+    "admiration", "amusement", "approval", "caring", "desire", "excitement",
+    "gratitude", "joy", "love", "optimism", "pride", "relief",
+    # DeepFace
+    "happy",
+}
+_NEGATIVE = {
+    # GoEmotions negative
+    "anger", "annoyance", "disappointment", "disapproval", "disgust",
+    "embarrassment", "fear", "grief", "nervousness", "remorse", "sadness",
+    # DeepFace
+    "angry", "sad",
+}
+_NEUTRAL = {
+    # GoEmotions neutral + ambiguous, and DeepFace neutral/surprise
+    "neutral", "confusion", "curiosity", "realization", "surprise",
+}
 
 _MIN_CONF = 0.35  # below this on either side, we don't trust a verdict
 
