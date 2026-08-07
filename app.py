@@ -91,7 +91,14 @@ def _render(s: MirrorState):
         cong = f"_{s.congruence.explanation or s.congruence.note}_"
 
     # --- Traditional (folklore) ---
-    trad = s.readings.traditional_reading or "_Add a photo for a traditional reading._"
+    if s.readings.traditional_reading:
+        trad = s.readings.traditional_reading
+    elif not s.features.available and s.features.note:
+        # e.g. model not downloaded, or no face found -- say why, don't tell
+        # someone who uploaded a photo to "add a photo".
+        trad = f"_{s.features.note}_"
+    else:
+        trad = "_Add a photo for a traditional reading._"
 
     # --- Recommendations ---
     r = s.recommendations

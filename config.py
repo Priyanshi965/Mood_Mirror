@@ -26,6 +26,13 @@ DATA_DIR = ROOT / "data"
 CORPUS_PATH = DATA_DIR / "face_reading_corpus.json"
 FEEDBACK_DB = ROOT / "feedback" / "moodmirror.db"   # gitignored
 
+# MediaPipe Face Mesh model (~3.6MB). Lives outside the repo; download once via
+# scripts/download_weights.py. core/features.py gates on this file existing.
+FACE_LANDMARKER_PATH = os.getenv(
+    "FACE_LANDMARKER_PATH",
+    str(Path(os.path.expanduser("~")) / ".mediapipe" / "face_landmarker.task"),
+)
+
 
 # --- LLM (OpenRouter is the chosen provider; others kept as easy fallbacks) - #
 # All the OpenAI-compatible providers here share one call path -- see

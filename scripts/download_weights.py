@@ -9,9 +9,10 @@ this once, on a good connection, to enable both:
     python scripts/download_weights.py
 
 Downloads:
-  * DeepFace emotion (~6MB)   -- tiny; also downloads on first use anyway
-  * DeepFace age (~540MB)     -- enables the fuzzy age band
-  * GoEmotions text (~500MB)  -- enables real text-emotion (Layer 3)
+  * DeepFace emotion (~6MB)     -- tiny; also downloads on first use anyway
+  * DeepFace age (~540MB)       -- enables the fuzzy age band
+  * GoEmotions text (~500MB)    -- enables real text-emotion (Layer 3)
+  * MediaPipe face mesh (~4MB)  -- enables facial features / traditional reading
 
 Safe to re-run -- each library skips files it already has. The app still runs
 without this; the gated layers just stay "unavailable" until you do it.
@@ -61,7 +62,24 @@ def main() -> int:
     except Exception as e:  # noqa: BLE001
         print(f"  text emotion: FAILED ({type(e).__name__}: {e})")
 
-    print("\nDone. Age + text-emotion are now enabled in the app.")
+    print("Downloading MediaPipe face-mesh model (~4MB) if missing ...")
+    try:
+        import os
+        import config
+        dest = config.FACE_LANDMARKER_PATH
+        if os.path.isfile(dest):
+            print("  face mesh: OK (already present)")
+        else:
+            import urllib.request
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            url = ("https://storage.googleapis.com/mediapipe-models/face_landmarker/"
+                   "face_landmarker/float16/1/face_landmarker.task")
+            urllib.request.urlretrieve(url, dest)
+            print("  face mesh: OK")
+    except Exception as e:  # noqa: BLE001
+        print(f"  face mesh: FAILED ({type(e).__name__}: {e})")
+
+    print("\nDone. Age + text-emotion + face features are now enabled in the app.")
     return 0
 
 

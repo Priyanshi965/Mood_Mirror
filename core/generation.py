@@ -21,9 +21,14 @@ from __future__ import annotations
 
 import config
 from state import MirrorState, Readings
+from . import tradition
 
 _TIMEOUT = 45
 _MAX_TOKENS = 320  # headroom -- reasoning models emit nothing if starved
+
+# Non-negotiable folklore disclaimer (plan §10). Prepended in CODE so it's always
+# present regardless of what the LLM writes.
+_FOLKLORE_LABEL = "**Traditional face reading — for fun, not science.** "
 
 
 def _hedge(confidence: float) -> str:
@@ -90,6 +95,61 @@ def _llm_reading(state: MirrorState) -> str | None:
         return None
 
 
+def _traditional_messages(retrieved: list[dict]) -> list[dict]:
+    claims = "\n".join(
+        f"- {e['tradition']}: {e['claim']} (feature: {e['feature'].replace('_',' ')} = {e['value']})"
+        for e in retrieved
+    )
+    system = (
+        "You narrate TRADITIONAL face reading purely as folklore/entertainment, "
+        "like a horoscope. You report what named traditions CLAIM about facial "
+        "features -- you NEVER assert these claims are true, and you never read "
+        "psychology or character as fact. Weave the given claims into 2-3 warm, "
+        "playful sentences. Name the tradition(s). Keep the tone light and "
+        "clearly non-scientific. No lists."
+    )
+    user = ("Weave these traditional claims into a short reading:\n" + claims +
+            "\n\nRemember: report them as what the tradition says, not as truth.")
+    return [{"role": "system", "content": system},
+            {"role": "user", "content": user}]
+
+
+def _template_traditional(retrieved: list[dict]) -> str:
+    """Deterministic folklore reading -- fallback when the LLM is unavailable."""
+    parts = [f"{e['tradition']} holds that {e['claim']}." for e in retrieved]
+    return " ".join(parts)
+
+
+def _traditional_reading(state: MirrorState) -> tuple[str, list[dict]]:
+    """Retrieve folklore for the detected features and weave it (LLM or template)."""
+    if not state.features.available:
+        return "", []
+    retrieved = tradition.retrieve(state.features.features)
+    if not retrieved:
+        return "", []
+    body = None
+    if config.llm_ready():
+        llm = config.active_llm()
+        try:
+            import requests
+            resp = requests.post(
+                f"{llm['base_url']}/chat/completions",
+                headers={"Authorization": f"Bearer {llm['api_key']}", **llm["headers"]},
+                json={"model": llm["model"], "messages": _traditional_messages(retrieved),
+                      "max_tokens": _MAX_TOKENS, "temperature": 0.9},
+                timeout=_TIMEOUT,
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"].get("content")
+            body = content.strip() if content else None
+        except Exception:  # noqa: BLE001
+            body = None
+    if not body:
+        body = _template_traditional(retrieved)
+    # Disclaimer guaranteed by code, not by the model.
+    return _FOLKLORE_LABEL + body, retrieved
+
+
 def _template_reading(state: MirrorState) -> str:
     """Deterministic hedged reading -- the fallback when the LLM is unavailable."""
     face, text, cong = state.face, state.text, state.congruence
@@ -107,7 +167,7 @@ def _template_reading(state: MirrorState) -> str:
 
 def generate(state: MirrorState) -> Readings:
     face, text = state.face, state.text
-    if not face.available and not text.available:
+    if not (face.available or text.available or state.features.available):
         return Readings(available=False,
                         note="Nothing to read yet -- add a face or a line of text.")
 
@@ -118,17 +178,8 @@ def generate(state: MirrorState) -> Readings:
         reading = _template_reading(state)
         source = "template"
 
-    # Traditional reading -- still a folklore-labeled placeholder (Phase 3 wires
-    # corpus retrieval into readings.retrieved_tradition).
-    if state.features.available:
-        feats = ", ".join(f"{k}: {v}" for k, v in state.features.features.items())
-        traditional = (
-            "Traditional face reading -- for fun, not science. "
-            f"Tradition would note your {feats}. (Folklore claims get woven in "
-            "here once the corpus retrieval lands in Phase 3.)"
-        )
-    else:
-        traditional = ""
+    # Traditional reading -- folklore woven from retrieved corpus entries (RAG).
+    traditional, retrieved = _traditional_reading(state)
 
     shown = face.emotion if face.available else "unclear"
     said = text.emotion if text.available else None
@@ -140,7 +191,7 @@ def generate(state: MirrorState) -> Readings:
         note=source,
         emotional_reading=reading,
         traditional_reading=traditional,
-        retrieved_tradition=[],
+        retrieved_tradition=retrieved,
         recommendation_spec=spec,
     )
 

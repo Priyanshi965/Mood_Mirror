@@ -1,33 +1,59 @@
 {
-  "_comment": "Traditional face-reading corpus. FOLKLORE, NOT SCIENCE (plan §4). Each entry reports what a named tradition CLAIMS about a facial feature; it never asserts truth. The `feature` values must match the keys produced by core/features.py so retrieval can join them. This is a schema-lock seed of 4 entries -- grow it by hand over the project (plan §11).",
+  "_comment": "Traditional face-reading corpus. FOLKLORE, NOT SCIENCE (plan §4). Each entry reports what a named tradition CLAIMS about a facial feature value; it never asserts truth. `feature` + `value` must match the keys/values produced by core/features.py so core/tradition.py can join them. Grow this by hand over the project.",
   "entries": [
     {
-      "feature": "eyebrows",
-      "value": "thick",
+      "feature": "face_shape", "value": "round",
       "tradition": "Chinese mian xiang",
-      "claim": "associated with strong will, drive, and abundant energy",
-      "source": "Traditional mian xiang (physiognomy) teachings; e.g. Lillian Too, 'Chinese Face Reading'"
-    },
-    {
-      "feature": "eyebrows",
-      "value": "thin",
-      "tradition": "Chinese mian xiang",
-      "claim": "linked to a careful, reserved temperament in the tradition",
+      "claim": "linked to a water element -- read as sociable, adaptable, and warm",
       "source": "Traditional mian xiang teachings"
     },
     {
-      "feature": "face_shape",
-      "value": "oval",
+      "feature": "face_shape", "value": "oval",
       "tradition": "Western physiognomy",
       "claim": "historically read as balanced and diplomatic",
-      "source": "Western physiognomic folklore (e.g. 19th c. popular physiognomy manuals)"
+      "source": "19th c. popular physiognomy manuals"
     },
     {
-      "feature": "lips",
-      "value": "full",
+      "feature": "face_shape", "value": "long",
       "tradition": "Chinese mian xiang",
-      "claim": "said to signal warmth, generosity, and expressiveness",
+      "claim": "associated with a wood element -- read as thoughtful, methodical, and idealistic",
       "source": "Traditional mian xiang teachings"
+    },
+    {
+      "feature": "jaw", "value": "strong",
+      "tradition": "Chinese mian xiang",
+      "claim": "a broad, firm jaw is said to signal determination, stamina, and willpower",
+      "source": "Traditional mian xiang teachings"
+    },
+    {
+      "feature": "jaw", "value": "refined",
+      "tradition": "Western physiognomy",
+      "claim": "a narrow, tapered jaw was read as sensitivity and a mind inclined to ideas over force",
+      "source": "19th c. popular physiognomy manuals"
+    },
+    {
+      "feature": "eyes", "value": "large",
+      "tradition": "Chinese mian xiang",
+      "claim": "large, open eyes are said to reflect an expressive, emotionally receptive nature",
+      "source": "Traditional mian xiang teachings"
+    },
+    {
+      "feature": "eyes", "value": "small",
+      "tradition": "Chinese mian xiang",
+      "claim": "smaller eyes are traditionally read as focus, discernment, and a guarded inner world",
+      "source": "Traditional mian xiang teachings"
+    },
+    {
+      "feature": "lips", "value": "full",
+      "tradition": "Chinese mian xiang",
+      "claim": "fuller lips are said to signal warmth, generosity, and expressiveness",
+      "source": "Traditional mian xiang teachings"
+    },
+    {
+      "feature": "lips", "value": "thin",
+      "tradition": "Western physiognomy",
+      "claim": "thinner lips were read as discretion, precision, and reserve",
+      "source": "19th c. popular physiognomy manuals"
     }
   ]
 }
