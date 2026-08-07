@@ -23,15 +23,20 @@ _TIMEOUT = 12
 _N = 4  # results per category
 
 # Mood (from generation._valence_hint) -> query params for each provider.
+# Movies are a CURATED list, not a live API: TMDB (the natural choice) is blocked
+# by some ISPs, and the keyless alternatives can't discover by mood. Curated picks
+# are reliable, always mood-appropriate, and linked to Letterboxd (reachable).
 _MOOD_MAP = {
     "low": {
         "tags": ["calm", "mellow", "chill"],
-        "genre": (35, "Comedy"),            # a gentle lift
+        "movies": [("Paddington 2", 2017), ("Amélie", 2001),
+                   ("Up", 2009), ("The Grand Budapest Hotel", 2014)],
         "arxiv": "emotion and wellbeing",
     },
     "steady": {
         "tags": ["feel good", "indie", "happy"],
-        "genre": (12, "Adventure"),
+        "movies": [("Everything Everywhere All at Once", 2022), ("Spirited Away", 2001),
+                   ("Interstellar", 2014), ("Big Fish", 2003)],
         "arxiv": "creativity and cognition",
     },
 }
@@ -68,28 +73,13 @@ def _music(tags: list[str]) -> tuple[list[dict], str]:
         return [], f"Last.fm unavailable ({type(e).__name__})"
 
 
-def _movies(genre: tuple[int, str]) -> tuple[list[dict], str]:
-    if not config.tmdb_ready():
-        return [], "TMDB key not set"
-    gid, _gname = genre
-    ck = ("movies", gid)
-    if ck in _cache:
-        return _cache[ck], ""
-    try:
-        r = _get("https://api.themoviedb.org/3/discover/movie", {
-            "api_key": config.TMDB_API_KEY, "with_genres": gid,
-            "sort_by": "vote_average.desc", "vote_count.gte": 800,
-            "language": "en-US", "page": 1})
-        data = r.json()
-        if data.get("status_code"):
-            return [], "TMDB error"
-        out = [{"title": m["title"], "year": (m.get("release_date") or "")[:4],
-                "score": m.get("vote_average")}
-               for m in data.get("results", [])[:_N]]
-        _cache[ck] = out
-        return out, ""
-    except Exception as e:  # noqa: BLE001
-        return [], f"TMDB unavailable ({type(e).__name__})"
+def _movies(picks: list[tuple[str, int]]) -> tuple[list[dict], str]:
+    """Curated mood picks, linked to Letterboxd. No API call -- always works."""
+    from urllib.parse import quote
+    out = [{"title": title, "year": str(year),
+            "url": f"https://letterboxd.com/search/{quote(title)}/"}
+           for title, year in picks[:_N]]
+    return out, ""
 
 
 def _papers(query: str) -> tuple[list[dict], str]:
@@ -124,7 +114,7 @@ def recommend(spec: dict[str, Any]) -> Recommendations:
     params = _MOOD_MAP.get(mood, _MOOD_MAP["steady"])
 
     music, m_note = _music(params["tags"])
-    movies, v_note = _movies(params["genre"])
+    movies, v_note = _movies(params["movies"])
     papers, p_note = _papers(params["arxiv"])
 
     notes = [n for n in (m_note, v_note, p_note) if n]

@@ -21,9 +21,13 @@ importing this module stays instant.
 
 from __future__ import annotations
 
+import threading
+
 from state import TextState
 
 _MODEL = "SamLowe/roberta-base-go_emotions"
+# Streaming can call this concurrently with a Reflect click; serialize inference.
+_infer_lock = threading.Lock()
 
 # Module-level cache. None = not tried; False = tried and unavailable; else the
 # loaded pipeline. Keeps 500MB out of the per-request path.
@@ -68,7 +72,8 @@ def analyze_text(text: str) -> TextState:
         )
 
     try:
-        out = clf(text.strip())
+        with _infer_lock:
+            out = clf(text.strip())
     except Exception as e:  # noqa: BLE001
         return TextState(available=False, text=text.strip(),
                          note=f"Text-emotion model failed. ({type(e).__name__})")

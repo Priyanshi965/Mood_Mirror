@@ -49,6 +49,10 @@ class FaceState:
     age_low: Optional[int] = None
     age_high: Optional[int] = None
 
+    # Rough glasses guess (Reflect only) so the age caveat can adapt to the
+    # actual face instead of always blaming glasses. None = not checked.
+    has_glasses: Optional[bool] = None
+
 
 # --------------------------------------------------------------------------- #
 # Layer 2 -- Facial features (MediaPipe Face Mesh): geometry for folklore

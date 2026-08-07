@@ -33,11 +33,18 @@ _CHEEK_L, _CHEEK_R = 234, 454
 _JAW_L, _JAW_R = 172, 397
 _EYE_L_OUT, _EYE_L_IN = 33, 133
 _EYE_R_IN, _EYE_R_OUT = 362, 263
+_EYE_L_TOP, _EYE_R_TOP = 159, 386
+_BROW_L, _BROW_R = 105, 334        # mid-eyebrow points
 _LIP_TOP, _LIP_BOT = 0, 17
 _MOUTH_L, _MOUTH_R = 61, 291
 
+import threading
+
 _landmarker: object | None = None
 _load_failed = False
+# Streaming means concurrent requests can hit the cached landmarker. MediaPipe's
+# FaceLandmarker.detect() in IMAGE mode isn't documented thread-safe, so serialize.
+_detect_lock = threading.Lock()
 
 
 def _close_landmarker() -> None:
@@ -116,7 +123,8 @@ def extract_features(image: Any) -> FeatureState:
         import mediapipe as mp
         mp_img = mp.Image(image_format=mp.ImageFormat.SRGB,
                           data=np.ascontiguousarray(image))
-        result = landmarker.detect(mp_img)
+        with _detect_lock:
+            result = landmarker.detect(mp_img)
     except Exception as e:  # noqa: BLE001
         return FeatureState(available=False,
                             note=f"Face-mesh failed. ({type(e).__name__})")
@@ -139,14 +147,18 @@ def extract_features(image: Any) -> FeatureState:
         "jaw_taper": dist(_JAW_L, _JAW_R) / face_w,
         "eye_width": ((dist(_EYE_L_OUT, _EYE_L_IN) + dist(_EYE_R_IN, _EYE_R_OUT)) / 2) / face_w,
         "lip_fullness": dist(_LIP_TOP, _LIP_BOT) / dist(_MOUTH_L, _MOUTH_R),
+        "brow_height": ((dist(_BROW_L, _EYE_L_TOP) + dist(_BROW_R, _EYE_R_TOP)) / 2) / face_h,
     }
 
     # Bucket thresholds -- heuristic, calibrated against a single reference face.
-    # Treated as folklore inputs, not measurements.
+    # Treated as folklore inputs, not measurements. Every feature always resolves
+    # to one of three named values, and the corpus has an entry for all of them,
+    # so a detected face always gets a claim for each aspect.
     features = {
         "face_shape": _bucket(ratios["face_wh"], 0.75, 0.82, ("long", "oval", "round")),
-        "jaw":        _bucket(ratios["jaw_taper"], 0.80, 0.86, ("refined", "balanced", "strong")),
+        "brows":      _bucket(ratios["brow_height"], 0.10, 0.135, ("low", "balanced", "high")),
         "eyes":       _bucket(ratios["eye_width"], 0.195, 0.215, ("small", "average", "large")),
+        "jaw":        _bucket(ratios["jaw_taper"], 0.80, 0.86, ("refined", "balanced", "strong")),
         "lips":       _bucket(ratios["lip_fullness"], 0.30, 0.38, ("thin", "average", "full")),
     }
 

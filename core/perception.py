@@ -22,17 +22,56 @@ Two Windows-specific gotchas this file handles so you don't have to:
 
 from __future__ import annotations
 
+import threading
 from typing import Any
 
 from state import FaceState
+
+# Serialize DeepFace/TensorFlow calls. Under the live stream, a Reflect click and
+# a stream frame can hit TF from two threads at once; concurrent first-time DLL
+# init crashes on Windows (0x45A), and warmup() below inits it in the main thread.
+_tf_lock = threading.Lock()
 
 # Below this DeepFace face_confidence we treat the frame as "no clear face".
 # A detected face scores ~0.9+; when nothing is found the whole frame is used
 # and confidence collapses toward 0.
 _FACE_CONF_MIN = 0.10
 
-# Age is a guess (off 5-10yr, worse in poor light) -- present it as a band.
-_AGE_BAND = 6
+# DeepFace's age model skews OLD and spreads its guesses WIDE. We COMPRESS the
+# raw estimate with an affine calibration (scale < 1, then a small shift) so
+# predictions pull toward a tighter, more accurate range -- high guesses get
+# reeled in more than low ones. Calibrated so a raw ~30 lands near ~21 (typical
+# young user). Heuristic, not a trained calibration -- hence the playful caveat.
+_AGE_SCALE = 0.72
+_AGE_SHIFT = 1
+_AGE_MIN = 12
+
+# Glasses heuristic: frames add strong edges across the eye band. Above this
+# Canny edge density we call it glasses. Calibrated so a bare face (~0.22 on the
+# reference) stays below it; tune from the logged values if it mis-fires.
+_GLASSES_EDGE_THRESHOLD = 0.30
+
+
+def _detect_glasses(image: Any, region: dict) -> "bool | None":
+    """Rough glasses guess from eye-band edge density. None if it can't tell."""
+    try:
+        import sys
+        import cv2
+        x, y, w, h = region.get("x"), region.get("y"), region.get("w"), region.get("h")
+        if not all(isinstance(v, (int, float)) for v in (x, y, w, h)) or w <= 0 or h <= 0:
+            return None
+        y0, y1 = int(y + 0.22 * h), int(y + 0.50 * h)   # eye band
+        x0, x1 = int(x + 0.10 * w), int(x + 0.90 * w)
+        crop = image[max(0, y0):max(0, y1), max(0, x0):max(0, x1)]
+        if crop.size == 0:
+            return None
+        gray = cv2.cvtColor(crop, cv2.COLOR_RGB2GRAY)
+        density = float(cv2.Canny(gray, 50, 150).mean()) / 255.0
+        print(f"[MoodMirror] glasses eye-band density={density:.3f} "
+              f"(threshold {_GLASSES_EDGE_THRESHOLD})", file=sys.stderr)
+        return density > _GLASSES_EDGE_THRESHOLD
+    except Exception:
+        return None
 
 
 def _make_console_utf8() -> None:
@@ -64,9 +103,12 @@ def _age_model_present() -> bool:
     return os.path.isfile(path)
 
 
-def analyze_face(image: Any) -> FaceState:
+def analyze_face(image: Any, with_age: bool = True) -> FaceState:
     """
     image: an RGB numpy array (H, W, 3), or None.
+    with_age: pass False on the live/streaming path -- age is a fuzzy guess and
+        recomputing the 539MB age model several times a second is pure waste.
+        Reflect (deliberate) keeps with_age=True.
     Returns a populated FaceState.
     """
     if image is None:
@@ -77,21 +119,23 @@ def analyze_face(image: Any) -> FaceState:
     except ImportError:
         return FaceState(available=False, note="DeepFace not installed.")
 
-    # Only request age if its weights are already on disk. Otherwise DeepFace
-    # would launch a ~500MB blocking download and hang the UI. Emotion is the
-    # graded core signal and always runs (its model is a tiny ~6MB).
-    got_age = _age_model_present()
+    # Only request age if asked AND its weights are already on disk. Otherwise
+    # DeepFace would launch a ~500MB blocking download and hang the UI. Emotion
+    # is the graded core signal and always runs (its model is a tiny ~6MB).
+    got_age = with_age and _age_model_present()
     actions = ("emotion", "age") if got_age else ("emotion",)
     try:
-        res = DeepFace.analyze(image, actions=actions,
-                               enforce_detection=False, silent=True)
+        with _tf_lock:
+            res = DeepFace.analyze(image, actions=actions,
+                                   enforce_detection=False, silent=True)
     except Exception as e:  # noqa: BLE001
         # Backstop: if the combined call still fails, retry emotion-only.
         if got_age:
             got_age = False
             try:
-                res = DeepFace.analyze(image, actions=("emotion",),
-                                       enforce_detection=False, silent=True)
+                with _tf_lock:
+                    res = DeepFace.analyze(image, actions=("emotion",),
+                                           enforce_detection=False, silent=True)
             except Exception as e2:  # noqa: BLE001
                 return FaceState(available=False,
                                  note=f"DeepFace could not run. ({type(e2).__name__})")
@@ -125,14 +169,18 @@ def analyze_face(image: Any) -> FaceState:
         emotion_scores=scores,
     )
 
-    # Age (fuzzy band), only if the age model actually ran.
+    # Age: single compressed/de-biased number (no band), only if age model ran.
     if got_age and r.get("age") is not None:
-        age = int(round(float(r["age"])))
-        face.age_estimate = age
-        face.age_low = max(0, age - _AGE_BAND)
-        face.age_high = age + _AGE_BAND
+        raw = float(r["age"])
+        face.age_estimate = max(_AGE_MIN, int(round(raw * _AGE_SCALE - _AGE_SHIFT)))
+        # age_low/high stay None -- we present one playful number, not a range.
     else:
         face.note = ("Emotion only -- age model not downloaded. "
                      "Run: python scripts/download_weights.py")
+
+    # Glasses guess only on the deliberate (Reflect) path -- lets the age caveat
+    # adapt. Skipped on the live stream to keep per-frame cost down.
+    if with_age:
+        face.has_glasses = _detect_glasses(image, r.get("region", {}) or {})
 
     return face

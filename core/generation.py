@@ -24,7 +24,8 @@ from state import MirrorState, Readings
 from . import tradition
 
 _TIMEOUT = 45
-_MAX_TOKENS = 320  # headroom -- reasoning models emit nothing if starved
+_MAX_TOKENS = 320       # emotional reading (2-3 sentences)
+_MAX_TOKENS_TRAD = 650  # folklore reading (5-7 sentences, covers every feature)
 
 # Non-negotiable folklore disclaimer (plan §10). Prepended in CODE so it's always
 # present regardless of what the LLM writes.
@@ -59,16 +60,16 @@ def _build_messages(state: MirrorState) -> list[dict]:
         facts.append(f"- Face vs words: {cong.verdict} -- {cong.explanation}")
 
     system = (
-        "You are MoodMirror, a warm, gentle reflective companion. You read a "
+        "You are MoodMirror, a warm, perceptive reflective companion. You read a "
         "person's MOMENTARY expressed emotion -- never their character, "
-        "personality, or worth. Write 2-3 short sentences, second person, kind "
-        "and grounded. HEDGE in proportion to confidence: low confidence means "
-        "softer, more tentative language. If face and words disagree, name that "
-        "gap gently as something worth noticing, not a diagnosis. No lists, no "
-        "clinical tone, no advice unless it flows naturally."
+        "personality, or worth. Write 2-3 warm, CONFIDENT sentences in second "
+        "person. Speak directly and vividly -- do NOT use tentative words like "
+        "'maybe', 'might', 'perhaps', 'it seems', 'sort of', or 'if'. State what you see. "
+        "When the face and the words disagree, name that gap plainly as something "
+        "real worth noticing. Kind and grounded, never clinical, no lists."
     )
-    user = "Here is what I sense right now:\n" + "\n".join(facts) + \
-           "\n\nWrite the reflection."
+    user = ("Here is what I read right now:\n" + "\n".join(facts) +
+            "\n\nWrite the reflection, confidently.")
     return [{"role": "system", "content": system},
             {"role": "user", "content": user}]
 
@@ -97,19 +98,24 @@ def _llm_reading(state: MirrorState) -> str | None:
 
 def _traditional_messages(retrieved: list[dict]) -> list[dict]:
     claims = "\n".join(
-        f"- {e['tradition']}: {e['claim']} (feature: {e['feature'].replace('_',' ')} = {e['value']})"
+        f"- {e['feature'].replace('_',' ')} ({e['value']}) — {e['tradition']}: {e['claim']}"
         for e in retrieved
     )
     system = (
-        "You narrate TRADITIONAL face reading purely as folklore/entertainment, "
-        "like a horoscope. You report what named traditions CLAIM about facial "
-        "features -- you NEVER assert these claims are true, and you never read "
-        "psychology or character as fact. Weave the given claims into 2-3 warm, "
-        "playful sentences. Name the tradition(s). Keep the tone light and "
-        "clearly non-scientific. No lists."
+        "You are a traditional face reader giving a fun, folklore reading -- like "
+        "a confident, charming fortune-teller. This is entertainment: you report "
+        "what named traditions (Chinese mian xiang, Western physiognomy) SAY about "
+        "a face, never asserting it as scientific truth. This person's face HAS the "
+        "listed features -- speak about them DIRECTLY and with playful confidence. "
+        "NEVER use 'if', 'maybe', 'perhaps', 'might', or 'those with…'. You MUST "
+        "give every single listed feature its own vivid line -- do not skip any. "
+        "Weave them into one flowing portrait of 5-7 sentences. Name the traditions "
+        "naturally. Do NOT include stage directions or actions in asterisks (like "
+        "*winks*) -- just the reading itself. Warm, colourful, confident. No lists, "
+        "no hedging, no disclaimers (those are added elsewhere)."
     )
-    user = ("Weave these traditional claims into a short reading:\n" + claims +
-            "\n\nRemember: report them as what the tradition says, not as truth.")
+    user = ("Read this face. It has these features, and here is what each tradition "
+            "says about them -- weave ALL of them into one confident reading:\n" + claims)
     return [{"role": "system", "content": system},
             {"role": "user", "content": user}]
 
@@ -136,7 +142,7 @@ def _traditional_reading(state: MirrorState) -> tuple[str, list[dict]]:
                 f"{llm['base_url']}/chat/completions",
                 headers={"Authorization": f"Bearer {llm['api_key']}", **llm["headers"]},
                 json={"model": llm["model"], "messages": _traditional_messages(retrieved),
-                      "max_tokens": _MAX_TOKENS, "temperature": 0.9},
+                      "max_tokens": _MAX_TOKENS_TRAD, "temperature": 0.9},
                 timeout=_TIMEOUT,
             )
             resp.raise_for_status()
