@@ -23,12 +23,12 @@ any heavy logic goes in. Later phases replace stub bodies without changing signa
 
 | Layer | File | Phase | State |
 |------|------|-------|-------|
-| 1 Perception (face emotion + age) | `core/perception.py` | 1 | **real** (age needs one-time weights download) |
+| 1 Perception (emotion / age / gender) | `core/perception.py` | 1 | **real** (DeepFace emotion + InsightFace age & gender) |
 | 2 Facial features (MediaPipe) | `core/features.py` | 3 | **real** (Tasks FaceLandmarker; needs one-time model download) |
 | 3 Text emotion (transformers) | `core/text_emotion.py` | 2 | **real** (GoEmotions; needs one-time model download) |
 | 4 Congruence (face vs words) | `core/congruence.py` | 2 | **real** (full GoEmotions+DeepFace valence coverage) |
 | 5 Reasoning & generation (LLM) | `core/generation.py` | 2/3 | **real** — emotional reading + folklore reading (RAG) via OpenRouter |
-| 6 Recommendations (Last.fm/TMDB/arXiv) | `core/recommend.py` | 4 | **real** (mood → live music/movies/papers) |
+| 6 Recommendations (Last.fm/curated/arXiv) | `core/recommend.py` | 4 | **real** (emotion → varied music/films/papers) |
 | Feedback log (SQLite) | `feedback/store.py` | 5 | **real (v1)** |
 
 The single source of truth for what flows between layers is **`state.py`** — read it first.

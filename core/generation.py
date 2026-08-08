@@ -23,9 +23,15 @@ import config
 from state import MirrorState, Readings
 from . import tradition
 
-_TIMEOUT = 45
-_MAX_TOKENS = 320       # emotional reading (2-3 sentences)
-_MAX_TOKENS_TRAD = 650  # folklore reading (5-7 sentences, covers every feature)
+_TIMEOUT = 60
+_MAX_TOKENS = 430       # emotional reading (a rich short paragraph)
+_MAX_TOKENS_TRAD = 800  # folklore reading (intro + every feature + synthesis)
+_MAX_TOKENS_CHAR = 430  # "most like you" matches
+
+# Generic phrases that make writing read as AI-generated -- banned in prompts.
+_BANNED = ("shimmer, radiate, essence, tapestry, journey, testament, delve, "
+           "beacon, symphony, dance of, whisper of, tell a story, weave, "
+           "in conclusion, it's important to note")
 
 # Non-negotiable folklore disclaimer (plan §10). Prepended in CODE so it's always
 # present regardless of what the LLM writes.
@@ -49,8 +55,8 @@ def _build_messages(state: MirrorState) -> list[dict]:
     if face.available and face.emotion:
         facts.append(f"- Face shows: {face.emotion} "
                      f"(confidence {face.emotion_confidence:.0%})")
-    if face.available and face.age_low is not None:
-        facts.append(f"- Rough age band (a fuzzy guess): {face.age_low}-{face.age_high}")
+    if face.available and face.age_estimate is not None:
+        facts.append(f"- Rough age impression (fuzzy): about {face.age_estimate}")
     if text.available and text.text:
         facts.append(f'- They typed: "{text.text}"')
         if text.emotion:
@@ -61,15 +67,19 @@ def _build_messages(state: MirrorState) -> list[dict]:
 
     system = (
         "You are MoodMirror, a warm, perceptive reflective companion. You read a "
-        "person's MOMENTARY expressed emotion -- never their character, "
-        "personality, or worth. Write 2-3 warm, CONFIDENT sentences in second "
-        "person. Speak directly and vividly -- do NOT use tentative words like "
-        "'maybe', 'might', 'perhaps', 'it seems', 'sort of', or 'if'. State what you see. "
-        "When the face and the words disagree, name that gap plainly as something "
-        "real worth noticing. Kind and grounded, never clinical, no lists."
+        "person's MOMENTARY expressed emotion -- never their character or worth. "
+        "Write a rich reflection of TWO short paragraphs (about 5-7 sentences "
+        "total), second person, confident and specific. Paragraph one: name what "
+        "their face and words show and how those two line up or pull apart -- if "
+        "they disagree, say so plainly as real, worth-noticing masking. Paragraph "
+        "two: go a little deeper into the texture of this moment and end on a "
+        "grounded, kind note. Do NOT hedge ('maybe/might/perhaps/it seems/if'). "
+        f"Do NOT use these worn AI phrases: {_BANNED}. Write like a thoughtful "
+        "human, not a chatbot -- concrete, unfussy, a little vivid. No lists, no "
+        "headings, no preamble."
     )
     user = ("Here is what I read right now:\n" + "\n".join(facts) +
-            "\n\nWrite the reflection, confidently.")
+            "\n\nWrite the two-paragraph reflection, confidently.")
     return [{"role": "system", "content": system},
             {"role": "user", "content": user}]
 
@@ -102,20 +112,24 @@ def _traditional_messages(retrieved: list[dict]) -> list[dict]:
         for e in retrieved
     )
     system = (
-        "You are a traditional face reader giving a fun, folklore reading -- like "
-        "a confident, charming fortune-teller. This is entertainment: you report "
-        "what named traditions (Chinese mian xiang, Western physiognomy) SAY about "
-        "a face, never asserting it as scientific truth. This person's face HAS the "
-        "listed features -- speak about them DIRECTLY and with playful confidence. "
-        "NEVER use 'if', 'maybe', 'perhaps', 'might', or 'those with…'. You MUST "
-        "give every single listed feature its own vivid line -- do not skip any. "
-        "Weave them into one flowing portrait of 5-7 sentences. Name the traditions "
-        "naturally. Do NOT include stage directions or actions in asterisks (like "
-        "*winks*) -- just the reading itself. Warm, colourful, confident. No lists, "
-        "no hedging, no disclaimers (those are added elsewhere)."
+        "You are a sharp, charming traditional face reader giving a fun folklore "
+        "reading. Entertainment only: you report what named traditions (Chinese "
+        "mian xiang, Western physiognomy) SAY about a face, never as scientific "
+        "truth. This person's face HAS the listed features -- speak DIRECTLY and "
+        "with confidence, never 'if/maybe/might/those with…'.\n"
+        "STRUCTURE your answer as markdown, and make it substantial:\n"
+        "1. A vivid one-line opening that sets the scene.\n"
+        "2. Then, for EACH listed feature, a short bolded sub-heading like "
+        "'**The eyes**' followed by 2-3 sentences: what the tradition claims, "
+        "plus a concrete, colourful elaboration. Cover every feature, none skipped.\n"
+        "3. A final '**Put together**' paragraph synthesising what this "
+        "combination of features suggests as a whole.\n"
+        f"Do NOT use these worn AI phrases: {_BANNED}. No stage directions in "
+        "asterisks. Confident, specific, a little witty. No disclaimers (added "
+        "elsewhere)."
     )
     user = ("Read this face. It has these features, and here is what each tradition "
-            "says about them -- weave ALL of them into one confident reading:\n" + claims)
+            "says -- write the full structured reading covering ALL of them:\n" + claims)
     return [{"role": "system", "content": system},
             {"role": "user", "content": user}]
 
@@ -156,6 +170,65 @@ def _traditional_reading(state: MirrorState) -> tuple[str, list[dict]]:
     return _FOLKLORE_LABEL + body, retrieved
 
 
+def _character_messages(state: MirrorState, retrieved: list[dict]) -> list[dict]:
+    # Base the matches on the FACE READING (the folklore personality traits),
+    # not the momentary mood -- "which character are you" is about who you are.
+    if retrieved:
+        traits = "; ".join(e["claim"] for e in retrieved)
+        profile = f"their traditional face reading says: {traits}"
+    elif state.features.available and state.features.features:
+        profile = "face-reading features: " + ", ".join(
+            f"{k} {v}" for k, v in state.features.features.items())
+    else:
+        profile = "a calm, balanced, adaptable presence"
+
+    gender = state.face.gender if state.face.available else None
+    gender_rule = ""
+    if gender:
+        gender_rule = (f" This person presents as a {gender}; the Character, "
+                       f"Cartoon/Disney, and Star MUST be {gender} — do not pick "
+                       f"the opposite gender.")
+    system = (
+        "You are a playful, culturally-savvy 'which character are you' matcher, "
+        "like a fun personality quiz. Given someone's current mood and "
+        "face-reading, name who they are most like RIGHT NOW. Output markdown with "
+        "EXACTLY these five lines, each a bold label then a full vivid, confident "
+        "sentence of why (name specific, real titles/people):\n"
+        "**🎭 Character:** <a fictional film or book character> — <why>\n"
+        "**🌈 Cartoon / Disney:** <an animated or Disney character> — <why>\n"
+        "**🎵 Song:** <a real song, 'Title' by Artist> — <why>\n"
+        "**🌟 Star:** <a real actor or actress> — <why>\n"
+        "**✨ Your vibe in a line:** <one punchy sentence capturing them overall>\n"
+        f"Confident and fun, for entertainment. Do NOT use worn AI phrases: "
+        f"{_BANNED}. No intro or outro -- just the five lines in that format."
+        + gender_rule
+    )
+    user = f"Match this person based on their face reading: {profile}."
+    return [{"role": "system", "content": system},
+            {"role": "user", "content": user}]
+
+
+def _character_match(state: MirrorState, retrieved: list[dict]) -> str:
+    """Playful 'most like you' match, based on the face reading. Empty on failure."""
+    if not config.llm_ready():
+        return ""
+    llm = config.active_llm()
+    try:
+        import requests
+        resp = requests.post(
+            f"{llm['base_url']}/chat/completions",
+            headers={"Authorization": f"Bearer {llm['api_key']}", **llm["headers"]},
+            json={"model": llm["model"], "messages": _character_messages(state, retrieved),
+                  "max_tokens": _MAX_TOKENS_CHAR, "temperature": 0.95},
+            timeout=_TIMEOUT,
+        )
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"].get("content")
+        return content.strip() if content else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def _template_reading(state: MirrorState) -> str:
     """Deterministic hedged reading -- the fallback when the LLM is unavailable."""
     face, text, cong = state.face, state.text, state.congruence
@@ -187,9 +260,14 @@ def generate(state: MirrorState) -> Readings:
     # Traditional reading -- folklore woven from retrieved corpus entries (RAG).
     traditional, retrieved = _traditional_reading(state)
 
-    shown = face.emotion if face.available else "unclear"
+    # "Most like you" -- playful match, based on the face reading (folklore traits).
+    character = _character_match(state, retrieved)
+
+    shown = face.emotion if face.available else None
     said = text.emotion if text.available else None
-    spec = {"mood": _valence_hint(shown, said),
+    spec = {"mood": _valence_hint(shown or "unclear", said),
+            # Specific dominant emotion drives varied, personal recommendations.
+            "emotion": (said or shown or "neutral"),
             "categories": ["music", "movies", "papers"]}
 
     return Readings(
@@ -198,6 +276,7 @@ def generate(state: MirrorState) -> Readings:
         emotional_reading=reading,
         traditional_reading=traditional,
         retrieved_tradition=retrieved,
+        character_match=character,
         recommendation_spec=spec,
     )
 

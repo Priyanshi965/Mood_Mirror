@@ -53,6 +53,11 @@ class FaceState:
     # actual face instead of always blaming glasses. None = not checked.
     has_glasses: Optional[bool] = None
 
+    # Perceived gender ("man"/"woman") from InsightFace, used to keep the
+    # character match gender-appropriate. None = not detected. Expressed
+    # appearance only -- never identity.
+    gender: Optional[str] = None
+
 
 # --------------------------------------------------------------------------- #
 # Layer 2 -- Facial features (MediaPipe Face Mesh): geometry for folklore
@@ -108,6 +113,9 @@ class Readings:
     emotional_reading: str = ""        # unlimited, hedged (plan §8.3)
     traditional_reading: str = ""      # folklore-labeled, from retrieved corpus
     retrieved_tradition: list[dict[str, Any]] = field(default_factory=list)
+
+    # "Most like you" -- a playful character / song / actor match (for fun).
+    character_match: str = ""
 
     # Structured spec Layer 6 turns into live queries. Not the content itself.
     recommendation_spec: dict[str, Any] = field(default_factory=dict)

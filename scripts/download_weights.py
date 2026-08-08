@@ -9,10 +9,10 @@ this once, on a good connection, to enable both:
     python scripts/download_weights.py
 
 Downloads:
-  * DeepFace emotion (~6MB)     -- tiny; also downloads on first use anyway
-  * DeepFace age (~540MB)       -- enables the fuzzy age band
-  * GoEmotions text (~500MB)    -- enables real text-emotion (Layer 3)
-  * MediaPipe face mesh (~4MB)  -- enables facial features / traditional reading
+  * DeepFace emotion (~6MB)      -- expression model (Layer 1)
+  * InsightFace buffalo_l (~300MB) -- age + gender (better than DeepFace's age)
+  * GoEmotions text (~500MB)     -- real text-emotion (Layer 3)
+  * MediaPipe face mesh (~4MB)   -- facial features / traditional reading
 
 Safe to re-run -- each library skips files it already has. The app still runs
 without this; the gated layers just stay "unavailable" until you do it.
@@ -49,9 +49,15 @@ def main() -> int:
     DeepFace.analyze(dummy, actions=("emotion",), enforce_detection=False, silent=True)
     print("  emotion: OK")
 
-    print("Downloading age weights (~540MB) if missing -- this can take a while ...")
-    DeepFace.analyze(dummy, actions=("age",), enforce_detection=False, silent=True)
-    print("  age: OK")
+    print("Downloading InsightFace age+gender model (~300MB) if missing ...")
+    try:
+        from insightface.app import FaceAnalysis
+        app = FaceAnalysis(name="buffalo_l",
+                           allowed_modules=["detection", "genderage"])
+        app.prepare(ctx_id=-1, det_size=(640, 640))
+        print("  age + gender: OK")
+    except Exception as e:  # noqa: BLE001
+        print(f"  age + gender: FAILED ({type(e).__name__}: {e})")
 
     print("Downloading GoEmotions text-emotion model (~500MB) if missing ...")
     try:

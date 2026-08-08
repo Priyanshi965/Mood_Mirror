@@ -18,3 +18,5 @@ transformers==5.4.0
 torch==2.11.0
 opencv-python==4.13.0
 numpy==2.4.4
+insightface==1.0.1      # age + gender (buffalo_l genderage model)
+onnxruntime==1.24.4     # runtime for insightface
