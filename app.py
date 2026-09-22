@@ -37,9 +37,9 @@ _EMOJI = {"happy": "😊", "sad": "😢", "angry": "😠", "fear": "😨",
 _reflecting = threading.Event()
 
 _PLACEHOLDER = "_Press **Reflect on this moment** to read this._"
-_PLACEHOLDER_HTML = ("<p style='color:#9aa0b8;font-size:1.08rem'>Press "
-                     "<b style='color:#c9bbff'>Reflect on this moment</b> to read "
-                     "your emotion.</p>")
+_PLACEHOLDER_HTML = (
+    "<div class='mm-empty'><span></span><p>Awaiting reflection capture</p></div>"
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -88,9 +88,9 @@ def reflect(image, text: str):
 # --------------------------------------------------------------------------- #
 def _live_card_md(face: FaceState, txt: TextState, cong: CongruenceState) -> str:
     if not face.available:
-        return f"### 🔍 Looking for a face…\n_{face.note}_"
+        return f"### Scanning for a face\n_{face.note}_"
     emoji = _EMOJI.get(face.emotion or "", "🙂")
-    lines = [f"### {emoji}  {face.emotion} · {face.emotion_confidence:.0%}"]
+    lines = [f"### {emoji} {face.emotion} · {face.emotion_confidence:.0%}"]
     if txt.available and txt.emotion:
         lines.append(f"Your words read **{txt.emotion}** ({txt.emotion_confidence:.0%})")
     if cong.available and cong.verdict != "insufficient":
@@ -169,7 +169,7 @@ def _traditional_md(s: MirrorState) -> str:
 
 def _character_md(readings: Readings) -> str:
     if readings.character_match:
-        return "### ✨ Right now, you're most like…\n\n" + readings.character_match
+        return "### Right now, you're most like...\n\n" + readings.character_match
     return "_Needs the local model to conjure your matches — press Reflect._"
 
 
@@ -199,7 +199,7 @@ def _recs_md(r: Recommendations) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Theme + CSS (cosmic dark, purple/teal, rounded glass cards, pill tabs)
+# Theme + CSS (futuristic dark console with luminous cyan/violet accents)
 # --------------------------------------------------------------------------- #
 _THEME = gr.themes.Base(
     primary_hue=gr.themes.colors.purple,
@@ -209,109 +209,298 @@ _THEME = gr.themes.Base(
 )
 
 _CSS = """
+:root {
+  --mm-bg: #050713;
+  --mm-panel: rgba(9, 14, 31, 0.74);
+  --mm-panel-strong: rgba(14, 21, 44, 0.88);
+  --mm-line: rgba(125, 249, 255, 0.18);
+  --mm-line-hot: rgba(185, 147, 255, 0.36);
+  --mm-text: #edf6ff;
+  --mm-muted: #93a4bd;
+  --mm-cyan: #67e8f9;
+  --mm-violet: #b993ff;
+  --mm-green: #8cffc1;
+  --mm-red: #ff6b9f;
+}
 .gradio-container {
   background:
-    radial-gradient(1.6px 1.6px at 8% 12%, rgba(255,255,255,0.85), transparent),
-    radial-gradient(1.4px 1.4px at 22% 38%, rgba(200,220,255,0.7), transparent),
-    radial-gradient(1.2px 1.2px at 35% 8%, rgba(255,255,255,0.6), transparent),
-    radial-gradient(1.5px 1.5px at 48% 62%, rgba(210,200,255,0.6), transparent),
-    radial-gradient(1.3px 1.3px at 63% 22%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(1.6px 1.6px at 74% 55%, rgba(180,230,255,0.6), transparent),
-    radial-gradient(1.2px 1.2px at 86% 30%, rgba(255,255,255,0.7), transparent),
-    radial-gradient(1.4px 1.4px at 92% 74%, rgba(210,200,255,0.6), transparent),
-    radial-gradient(1.3px 1.3px at 15% 78%, rgba(255,255,255,0.55), transparent),
-    radial-gradient(1.5px 1.5px at 55% 88%, rgba(200,220,255,0.6), transparent),
-    radial-gradient(1.2px 1.2px at 30% 92%, rgba(255,255,255,0.5), transparent),
-    radial-gradient(1.4px 1.4px at 79% 90%, rgba(210,210,255,0.55), transparent),
-    radial-gradient(1200px 820px at 12% -12%, rgba(124,92,255,0.22), transparent 60%),
-    radial-gradient(1000px 700px at 105% 8%, rgba(45,212,191,0.14), transparent 55%),
-    radial-gradient(900px 900px at 50% 122%, rgba(139,92,246,0.18), transparent 60%),
-    #07060f !important;
+    linear-gradient(rgba(103,232,249,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103,232,249,0.035) 1px, transparent 1px),
+    radial-gradient(920px 640px at 8% -10%, rgba(103,232,249,0.18), transparent 62%),
+    radial-gradient(820px 620px at 94% 0%, rgba(185,147,255,0.18), transparent 58%),
+    radial-gradient(860px 760px at 58% 115%, rgba(140,255,193,0.10), transparent 55%),
+    linear-gradient(140deg, #03040b 0%, var(--mm-bg) 45%, #080816 100%) !important;
+  background-size: 42px 42px, 42px 42px, auto, auto, auto, auto !important;
   background-attachment: fixed !important;
-  color: #e7e7f2 !important;
+  color: var(--mm-text) !important;
+}
+.gradio-container::before {
+  content:"";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent 0%, rgba(103,232,249,0.05) 50%, transparent 100%);
+  background-size: 100% 7px;
+  opacity: .22;
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.gradio-container > .main, .contain {
+  position: relative;
+  z-index: 1;
+}
+.gradio-container .main {
+  max-width: 1260px !important;
+  margin: 0 auto !important;
+}
+.mm-shell {
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:24px;
+  padding: 22px 2px 18px;
+  border-bottom: 1px solid var(--mm-line);
+  margin-bottom: 18px;
+}
+.mm-kicker {
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  color: var(--mm-cyan);
+  letter-spacing:.22em;
+  font-size:.68rem;
+  text-transform:uppercase;
+  font-weight:800;
+}
+.mm-kicker::before {
+  content:"";
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background: var(--mm-green);
+  box-shadow:0 0 18px var(--mm-green);
 }
 .mm-title {
-  font-weight: 800; font-size: 2.5rem; line-height: 1.1; margin-bottom: 2px;
-  background: linear-gradient(92deg,#e9e3ff, #a78bfa 30%, #5eead4 65%, #bef264);
+  display:block;
+  font-weight: 900;
+  font-size: clamp(2.3rem, 4.4vw, 5.2rem);
+  line-height: .9;
+  margin: 9px 0 8px;
+  letter-spacing: 0;
+  background: linear-gradient(92deg,#ffffff 0%, var(--mm-cyan) 38%, var(--mm-violet) 78%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 0 34px rgba(103,232,249,.16);
 }
-.mm-sub { color:#9aa0b8 !important; margin-top: 0; }
-.mm-eyebrow { color:#a78bfa !important; letter-spacing:.18em; font-size:.72rem;
-  text-transform:uppercase; font-weight:700; }
+.mm-sub {
+  color: var(--mm-muted) !important;
+  margin: 0;
+  max-width: 760px;
+  font-size: .98rem;
+  line-height: 1.7;
+}
+.mm-status-grid {
+  display:grid;
+  grid-template-columns: repeat(3, minmax(76px, 1fr));
+  gap:10px;
+  min-width: 320px;
+}
+.mm-stat {
+  background: linear-gradient(180deg, rgba(103,232,249,0.11), rgba(185,147,255,0.05));
+  border: 1px solid var(--mm-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 22px rgba(103,232,249,.07);
+}
+.mm-stat b {
+  display:block;
+  color: var(--mm-text);
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+.mm-stat span {
+  display:block;
+  margin-top: 3px;
+  color: var(--mm-muted);
+  font-size: .63rem;
+  text-transform: uppercase;
+  letter-spacing: .14em;
+}
+.mm-panel-title {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 16px;
+  margin: 0 0 12px;
+  color: var(--mm-text);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+.mm-panel-title::after {
+  content:"";
+  flex:1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--mm-line), transparent);
+}
 .mm-card {
-  background: rgba(19,17,38,0.55) !important;
-  border: 1px solid rgba(139,92,246,0.18) !important;
-  border-radius: 20px !important;
-  box-shadow: 0 8px 40px rgba(80,40,180,0.10) !important;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(15,23,49,0.82), rgba(7,11,25,0.78)) !important;
+  border: 1px solid var(--mm-line) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.28), 0 0 34px rgba(103,232,249,0.08) !important;
   backdrop-filter: blur(8px);
-  padding: 14px 26px !important;
+  padding: 18px 22px !important;
+}
+.mm-card::before {
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  height:1px;
+  background: linear-gradient(90deg, transparent, var(--mm-cyan), var(--mm-violet), transparent);
+  opacity:.75;
+}
+.mm-card::after {
+  content:"";
+  position:absolute;
+  width:72px;
+  height:72px;
+  right:-36px;
+  top:-36px;
+  border:1px solid rgba(103,232,249,.22);
+  transform: rotate(45deg);
 }
 /* Readable, editorial typography for the written readings */
 .mm-card p, .mm-card li {
-  font-size: 1.14rem !important; line-height: 1.85 !important;
-  color: #e2e2f2 !important; margin: 0.55rem 0 !important;
+  font-size: 1.05rem !important; line-height: 1.78 !important;
+  color: #dce8f8 !important; margin: 0.55rem 0 !important;
 }
-.mm-card h2 { font-size: 1.7rem !important; margin: .2rem 0 .4rem !important; }
+.mm-card h2 { font-size: 1.55rem !important; margin: .2rem 0 .4rem !important; }
 .mm-card h3 { font-size: 1.28rem !important; margin: 1rem 0 .3rem !important;
-  color: #ded7ff !important; }
-.mm-card strong { color: #c9bbff !important; font-weight: 700; }
-.mm-card em { color: #9aa0b8 !important; }
-.mm-card a { color: #8fe3d3 !important; text-decoration: none; }
+  color: #e8fbff !important; }
+.mm-card strong { color: var(--mm-cyan) !important; font-weight: 800; }
+.mm-card em { color: var(--mm-muted) !important; }
+.mm-card a { color: var(--mm-green) !important; text-decoration: none; }
 .mm-card a:hover { text-decoration: underline; }
-.mm-live { min-height: 96px; }
+.mm-live { min-height: 118px; }
 .mm-live h3 { color:#fff !important; }
+.mm-empty {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  color: var(--mm-muted);
+  min-height: 116px;
+}
+.mm-empty span {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--mm-line);
+  box-shadow: 0 0 22px rgba(103,232,249,.15), inset 0 0 20px rgba(103,232,249,.06);
+}
+.mm-empty p {
+  margin: 0 !important;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  font-size: .76rem !important;
+}
+.mm-input-panel {
+  display:block;
+}
 /* pill tabs, scoped to our container */
-#mm-tabs .tab-nav { border: none !important; gap: 8px; }
+#mm-tabs .tab-nav {
+  border: none !important;
+  gap: 8px;
+  border-bottom: 1px solid var(--mm-line) !important;
+  padding-bottom: 10px;
+}
 #mm-tabs .tab-nav button {
-  border-radius: 999px !important; border: 1px solid rgba(139,92,246,0.20) !important;
-  background: rgba(255,255,255,0.03) !important; color:#c7c9db !important;
-  padding: 6px 16px !important; font-weight: 600;
+  border-radius: 7px !important; border: 1px solid rgba(103,232,249,0.14) !important;
+  background: rgba(8,13,29,0.72) !important; color:#b8c8dd !important;
+  padding: 8px 15px !important; font-weight: 800;
+  letter-spacing: .02em;
 }
 #mm-tabs .tab-nav button.selected {
-  background: linear-gradient(92deg, rgba(139,92,246,0.35), rgba(45,212,191,0.20)) !important;
-  color:#fff !important; border-color: rgba(167,139,250,0.55) !important;
-  box-shadow: 0 0 18px rgba(139,92,246,0.35);
+  background: linear-gradient(92deg, rgba(103,232,249,0.18), rgba(185,147,255,0.18)) !important;
+  color:#fff !important; border-color: rgba(103,232,249,0.42) !important;
+  box-shadow: 0 0 20px rgba(103,232,249,0.18);
 }
 /* primary button glow */
 button.primary, .mm-reflect button {
-  background: linear-gradient(92deg,#8b5cf6,#7c3aed) !important; border:none !important;
-  border-radius: 999px !important; box-shadow: 0 6px 24px rgba(124,58,237,0.45) !important;
+  background: linear-gradient(92deg, var(--mm-cyan), var(--mm-violet)) !important;
+  color: #06101d !important;
+  border:none !important;
+  border-radius: 7px !important;
+  box-shadow: 0 0 26px rgba(103,232,249,0.34) !important;
+  font-weight: 900 !important;
+  letter-spacing: .02em;
+}
+button.primary:hover, .mm-reflect button:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 0 34px rgba(185,147,255,0.36) !important;
+}
+input, textarea, .wrap, .block, .form, .panel {
+  border-radius: 8px !important;
+}
+label, .label-wrap span {
+  color: #c8d6e8 !important;
   font-weight: 700 !important;
+}
+textarea, input {
+  background: rgba(5,9,22,0.78) !important;
+  color: var(--mm-text) !important;
+  border-color: rgba(103,232,249,0.18) !important;
+}
+.image-container, .image-frame, .upload-container {
+  border-radius: 8px !important;
 }
 /* Emotion tab: confidence ring */
 .mm-emotion-wrap { text-align:center; padding: 6px 0 2px; }
 .mm-ring {
   width:176px; height:176px; border-radius:50%; margin: 6px auto 12px;
-  background: conic-gradient(#a78bfa 0deg,
-    #8b5cf6 calc(var(--pct)*1.8deg), #5eead4 calc(var(--pct)*3.6deg),
+  background: conic-gradient(var(--mm-cyan) 0deg,
+    var(--mm-violet) calc(var(--pct)*1.8deg), var(--mm-green) calc(var(--pct)*3.6deg),
     rgba(255,255,255,0.06) calc(var(--pct)*3.6deg));
   display:flex; align-items:center; justify-content:center;
-  box-shadow: 0 0 34px rgba(139,92,246,0.40);
+  box-shadow: 0 0 38px rgba(103,232,249,0.28);
 }
 .mm-ring-in {
-  width:140px; height:140px; border-radius:50%; background:#0d0b1a;
+  width:140px; height:140px; border-radius:50%; background:#07101f;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
+  border: 1px solid rgba(103,232,249,0.14);
 }
 .mm-ring-num { font-size:2.2rem; font-weight:800; color:#fff; line-height:1; }
 .mm-ring-lbl { font-size:.68rem; letter-spacing:.16em; text-transform:uppercase;
-  color:#9aa0b8; margin-top:4px; }
+  color:var(--mm-muted); margin-top:4px; }
 .mm-emotion-name { font-size:2rem; font-weight:800; text-transform:capitalize;
-  background:linear-gradient(92deg,#c4b5fd,#5eead4); -webkit-background-clip:text;
+  background:linear-gradient(92deg,var(--mm-cyan),var(--mm-violet)); -webkit-background-clip:text;
   background-clip:text; color:transparent; }
 .mm-emotion-sub { font-size:.7rem; letter-spacing:.16em; text-transform:uppercase;
-  color:#9aa0b8; }
+  color:var(--mm-muted); }
 /* Emotion tab: score bars */
 .mm-bars { margin-top:18px; }
 .mm-bar { display:flex; align-items:center; gap:12px; margin:10px 0; }
-.mm-bar-l { width:96px; text-transform:capitalize; color:#dcdcec; font-size:1rem; }
-.mm-bar-p { width:46px; text-align:right; color:#a78bfa; font-weight:700; }
+.mm-bar-l { width:96px; text-transform:capitalize; color:#dce8f8; font-size:1rem; }
+.mm-bar-p { width:46px; text-align:right; color:var(--mm-cyan); font-weight:800; }
 .mm-track { flex:1; height:9px; border-radius:99px;
   background:rgba(255,255,255,0.07); overflow:hidden; }
 .mm-track i { display:block; height:100%; border-radius:99px;
-  background:linear-gradient(90deg,#8b5cf6,#5eead4); }
-.mm-extra { margin-top:16px; border-top:1px solid rgba(139,92,246,0.15); padding-top:10px; }
+  background:linear-gradient(90deg,var(--mm-cyan),var(--mm-violet)); }
+.mm-extra { margin-top:16px; border-top:1px solid var(--mm-line); padding-top:10px; }
 .mm-extra p { font-size:1.08rem !important; margin:.4rem 0 !important; }
-.mm-extra b { color:#c9bbff; }
+.mm-extra b { color:var(--mm-cyan); }
+@media (max-width: 900px) {
+  .mm-shell {
+    display:block;
+  }
+  .mm-status-grid {
+    min-width: 0;
+    margin-top: 16px;
+  }
+}
 footer { display:none !important; }
 """
 
@@ -322,19 +511,27 @@ def build_ui() -> gr.Blocks:
     with gr.Blocks(title="MoodMirror") as demo:
         latest_frame = gr.State(None)
 
-        gr.HTML("<span class='mm-eyebrow'>● live session</span>")
-        gr.HTML("<span class='mm-title'>MoodMirror</span>")
-        gr.HTML(f"<span class='mm-sub'>{CONSENT}</span>")
+        gr.HTML(
+            "<div class='mm-shell'>"
+            "<div><span class='mm-kicker'>Live session</span>"
+            "<span class='mm-title'>MoodMirror</span>"
+            f"<p class='mm-sub'>{CONSENT}</p></div>"
+            "<div class='mm-status-grid'>"
+            "<div class='mm-stat'><b>LIVE</b><span>Vision</span></div>"
+            "<div class='mm-stat'><b>LOCAL</b><span>Signals</span></div>"
+            "<div class='mm-stat'><b>ZERO</b><span>Media stored</span></div>"
+            "</div></div>"
+        )
 
         with gr.Row(equal_height=False):
             # ---------- LEFT: capture + live status ----------
             with gr.Column(scale=5):
+                gr.HTML("<div class='mm-panel-title'>Capture Deck</div>")
                 cam = gr.Image(sources=["webcam"], type="numpy", streaming=True,
                                label="Live webcam", height=300)
-                gr.HTML("<span class='mm-sub'>▶ Click the round record button "
-                        "to start the live feed.</span>")
+                gr.HTML("<p class='mm-sub'>Start the camera feed, or load a still frame.</p>")
                 with gr.Group(elem_classes=["mm-card", "mm-live"]):
-                    live_card = gr.Markdown("### 🔍 Looking for a face…")
+                    live_card = gr.Markdown("### Scanning for a face")
                 upload = gr.Image(sources=["upload"], type="numpy",
                                   label="…or upload a photo", height=170)
                 text_in = gr.Textbox(label="Say a line about how you feel",
@@ -344,22 +541,21 @@ def build_ui() -> gr.Blocks:
 
             # ---------- RIGHT: reflection tabs ----------
             with gr.Column(scale=6):
-                gr.HTML("<span class='mm-title' style='font-size:1.7rem'>"
-                        "Your Reflection</span>")
+                gr.HTML("<div class='mm-panel-title'>Reflection Console</div>")
                 with gr.Tabs(elem_id="mm-tabs"):
-                    with gr.Tab("😊 Emotion"):
+                    with gr.Tab("Emotion"):
                         with gr.Group(elem_classes=["mm-card"]):
                             t_emotion = gr.HTML(_PLACEHOLDER_HTML)
-                    with gr.Tab("🔮 Face Reading"):
+                    with gr.Tab("Face Reading"):
                         with gr.Group(elem_classes=["mm-card"]):
                             t_traditional = gr.Markdown(_PLACEHOLDER)
-                    with gr.Tab("⚖️ Congruence"):
+                    with gr.Tab("Congruence"):
                         with gr.Group(elem_classes=["mm-card"]):
                             t_congruence = gr.Markdown(_PLACEHOLDER)
-                    with gr.Tab("✨ For You"):
+                    with gr.Tab("For You"):
                         with gr.Group(elem_classes=["mm-card"]):
                             t_recs = gr.Markdown(_PLACEHOLDER)
-                    with gr.Tab("🎭 Most Like You"):
+                    with gr.Tab("Most Like You"):
                         with gr.Group(elem_classes=["mm-card"]):
                             t_character = gr.Markdown(_PLACEHOLDER)
 
